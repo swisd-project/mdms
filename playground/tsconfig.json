@@ -15,7 +15,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "mdms": ["../src/index.ts"]
+      "@swisd-project/mdms": ["../src/index.ts"]
     }
   },
   "include": ["src", "vite.config.ts"]

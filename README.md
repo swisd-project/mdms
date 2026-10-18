@@ -2,7 +2,7 @@
 
 A pristine, isomorphic Markdown-to-HTML transformer with AST-level progressive disclosure and strict frontmatter typing. 
 
-Built for the SwISD ecosystem, `mdms` extracts content from `.md` files and cleanly splits it at a designated marker (e.g., `<!-- more -->`), returning both a preview and the full HTML payload.
+Built for the (SwISD)[https://swisd.at] ecosystem, `mdms` extracts content from `.md` files and cleanly splits it at a designated marker (e.g., `<!-- more -->`), returning both a preview and the full HTML payload.
 
 ## 🚨 SECURITY NOTICE
 This library outputs **raw, un-sanitized HTML**. It assumes the input Markdown is trusted. If your content originates from untrusted user input, **you are strictly responsible** for sanitizing the output (e.g., via `DOMPurify`) before injecting it into the DOM. We provide the transformation; you provide the trust boundary.
@@ -14,17 +14,17 @@ This library outputs **raw, un-sanitized HTML**. It assumes the input Markdown i
 
 *Need a specific fetcher adapter bundled? Open an issue, and we’ll consider it.*
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 ```bash
-npm install mdms
+npm install @swisd-project/mdms
 ```
 
 ### Node.js Example
 ```typescript
 import { readFile } from 'fs/promises';
-import { parseMdms } from 'mdms';
+import { parseMdms } from 'npm install @swisd-project/mdms';
 
 async function loadArticle() {
   const rawMarkdown = await readFile('./article.md', 'utf-8');
@@ -39,7 +39,7 @@ async function loadArticle() {
 
 ### Browser Example
 ```typescript
-import { parseMdms } from 'mdms';
+import { parseMdms } from 'npm install @swisd-project/mdms';
 
 async function loadArticle() {
   const response = await fetch('/content/article.md');
