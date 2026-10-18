@@ -1,6 +1,6 @@
 {
   "name": "@swisd-project/mdms",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "A pristine, isomorphic Markdown-to-HTML transformer with AST-level progressive disclosure and strict frontmatter typing.",
   "type": "module",
   "main": "./dist/index.js",
