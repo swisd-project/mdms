@@ -7,7 +7,6 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: publish_npm # <--- THIS IS THE MAGIC KEY THAT MATCHES YOUR NPM CONFIG
     permissions:
       contents: read
       id-token: write # Required for npm provenance
