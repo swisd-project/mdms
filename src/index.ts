@@ -1,47 +1,53 @@
 /**
  * 1. Relative path: src/index.ts
  * 2. Description: Core entry point for the mdms library. Pure, isomorphic Markdown-to-HTML transformation.
- * 3. Expects: Raw Markdown string content and optional configuration.
- * 4. Provides: Strictly typed metadata, previewHtml, and fullHtml.
+ * 3. Expects: Raw Markdown string content, optional configuration, plugins, and class mappings.
+ * 4. Provides: Strictly typed metadata, previewHtml, and fullHtml with injected styling.
  * 5. SPDX-License-Identifier: MPL-2.0
  * 6. Copyright (c) 2026 Homahuki GmbH
  */
-import matter from 'gray-matter';
+import { parse as parseYaml } from 'yaml';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkRehype from 'remark-rehype';
 import rehypeStringify from 'rehype-stringify';
+import { visit } from 'unist-util-visit';
 import type { Root as MdastRoot } from 'mdast';
-import type { Root as HastRoot } from 'hast';
+import type { Root as HastRoot, Element } from 'hast';
 import type { MdmsOptions, MdmsResult } from './types.js';
 
-// Narrowing unknown to a safe Record type for default frontmatter
-function safeParseFrontmatter(data: unknown): Record<string, unknown> {
-  if (data === null || typeof data !== 'object') {
-    return {};
+/**
+ * Isomorphic frontmatter extractor. 
+ * Replaces gray-matter to guarantee zero Node.js API (Buffer) leaks in the browser.
+ */
+function extractFrontmatter(rawMarkdown: string): { data: Record<string, unknown>; content: string } {
+  const match = rawMarkdown.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+  
+  // Explicit narrowing: match, match[1], and match[2] are strictly typed as string here
+  if (!match || !match[1] || !match[2]) {
+    return { data: {}, content: rawMarkdown };
   }
-  return data as Record<string, unknown>;
+  
+  try {
+    const parsed = parseYaml(match[1]);
+    const data = (parsed === null || parsed === undefined) ? {} : (parsed as Record<string, unknown>);
+    return { data, content: match[2] };
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    throw new TypeError(`mdms: Invalid YAML frontmatter. ${err.message}`);
+  }
 }
 
-/**
- * Custom AST transformer to truncate the Markdown tree at a specific HTML comment marker.
- * Mutates the tree in place for performance.
- */
 function truncateAstAtMarker(node: unknown, marker: string): boolean {
-  // Narrowing: Check if it's a valid MDAST node with children
   if (node !== null && typeof node === 'object' && 'type' in node) {
     const typedNode = node as { type: string; value?: string; children?: unknown[] };
-    
     if (typedNode.type === 'html' && typeof typedNode.value === 'string' && typedNode.value.trim() === marker) {
-      return true; // Found the marker, signal to stop processing siblings
+      return true;
     }
-
     if (Array.isArray(typedNode.children)) {
       const newChildren: unknown[] = [];
       for (const child of typedNode.children) {
-        if (truncateAstAtMarker(child, marker)) {
-          break; // Stop adding children once the marker is found
-        }
+        if (truncateAstAtMarker(child, marker)) break;
         newChildren.push(child);
       }
       typedNode.children = newChildren;
@@ -50,13 +56,25 @@ function truncateAstAtMarker(node: unknown, marker: string): boolean {
   return false;
 }
 
-/**
- * Parses raw Markdown string into strictly typed metadata and progressive HTML payloads.
- * 
- * @param rawMarkdown - The raw string content of the .md file.
- * @param options - Optional configuration for split marker and frontmatter validation.
- * @returns An MdmsResult containing metadata, previewHtml, and fullHtml.
- */
+function rehypeInjectClasses(classMap: Record<string, string>) {
+  return (tree: HastRoot) => {
+    visit(tree, 'element', (node: Element) => {
+      const mappedClass = classMap[node.tagName];
+      if (mappedClass) {
+        const existingClass = node.properties?.className;
+        const newClasses = mappedClass.split(' ');
+        
+        // hast strictly types className as string[] | null | undefined.
+        if (Array.isArray(existingClass)) {
+          node.properties.className = [...existingClass, ...newClasses];
+        } else {
+          node.properties.className = newClasses;
+        }
+      }
+    });
+  };
+}
+
 export function parseMdms<TFrontmatter extends Record<string, unknown> = Record<string, unknown>>(
   rawMarkdown: string,
   options?: MdmsOptions<TFrontmatter>
@@ -66,49 +84,43 @@ export function parseMdms<TFrontmatter extends Record<string, unknown> = Record<
   }
 
   const marker = options?.splitMarker ?? '<!-- more -->';
-
-  // 1. Extract frontmatter safely
-  const { data: rawFrontmatter, content: markdownBody } = matter(rawMarkdown);
+  const { data: rawFrontmatter, content: markdownBody } = extractFrontmatter(rawMarkdown);
   
   let metadata: TFrontmatter;
   if (options?.validateFrontmatter) {
     try {
       metadata = options.validateFrontmatter(rawFrontmatter);
     } catch (error: unknown) {
-      // Narrowing unknown from catch block as per GUIDE.md
       const err = error instanceof Error ? error : new Error(String(error));
       throw new TypeError(`mdms: Frontmatter validation failed. ${err.message}`);
     }
   } else {
-    metadata = safeParseFrontmatter(rawFrontmatter) as TFrontmatter;
+    metadata = rawFrontmatter as TFrontmatter;
   }
 
-  // 2. Initialize separate processors for parsing and compiling
-  const parseProcessor = unified().use(remarkParse);
-  const compileProcessor = unified().use(remarkRehype).use(rehypeStringify);
+  let parseProcessor = unified().use(remarkParse);
+  let compileProcessor = unified().use(remarkRehype).use(rehypeStringify);
 
-  // 3. Parse the full Markdown body into an MDAST
+  if (options?.plugins && options.plugins.length > 0) {
+    compileProcessor = compileProcessor.use(options.plugins);
+  }
+
+  if (options?.classMap) {
+    compileProcessor = compileProcessor.use(rehypeInjectClasses, options.classMap);
+  }
+
   const fullMdast = parseProcessor.parse(markdownBody) as MdastRoot;
-
-  // 4. Clone the AST for the preview version (deep clone via JSON)
   const previewMdast = JSON.parse(JSON.stringify(fullMdast)) as MdastRoot;
-
-  // 5. Truncate the preview AST at the marker
   truncateAstAtMarker(previewMdast, marker);
 
-  // 6. Transform both MDASTs to HAST, then stringify to HTML
   const fullHast = compileProcessor.runSync(fullMdast) as HastRoot;
   const previewHast = compileProcessor.runSync(previewMdast) as HastRoot;
 
-  const fullHtml = String(compileProcessor.stringify(fullHast));
-  const previewHtml = String(compileProcessor.stringify(previewHast));
-
   return {
     metadata,
-    previewHtml,
-    fullHtml,
+    previewHtml: String(compileProcessor.stringify(previewHast)),
+    fullHtml: String(compileProcessor.stringify(fullHast)),
   };
 }
 
-// Barrel export of types
 export type { MdmsOptions, MdmsResult };

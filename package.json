@@ -23,11 +23,12 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "gray-matter": "^4.0.3",
     "rehype-stringify": "^10.0.0",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.0",
-    "unified": "^11.0.5"
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.0.0",
+    "yaml": "^2.5.1"
   },
   "devDependencies": {
     "@types/hast": "^3.0.4",

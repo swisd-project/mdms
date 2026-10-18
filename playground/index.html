@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mdms | Live Playground</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <h1>mdms Playground</h1>
+        <p>Isomorphic Markdown-to-HTML transformer with AST-level progressive disclosure.</p>
+      </header>
+      <main>
+        <section class="pane input-pane">
+          <h2>Raw Markdown Input</h2>
+          <textarea id="markdown-input" spellcheck="false"></textarea>
+        </section>
+        <section class="pane output-pane">
+          <h2>Rendered Output</h2>
+          <div id="html-output" class="prose"></div>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
