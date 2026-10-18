@@ -7,6 +7,7 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: publish_npm # <--- THIS IS THE MAGIC KEY THAT MATCHES YOUR NPM CONFIG
     permissions:
       contents: read
       id-token: write # Required for npm provenance
@@ -17,7 +18,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
@@ -31,5 +32,5 @@ jobs:
       - name: Build package
         run: npm run build
 
-      - name: Publish to NPM
+      - name: Publish to NPM via OIDC
         run: npm publish --provenance --access public
