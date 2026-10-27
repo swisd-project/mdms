@@ -23,7 +23,8 @@ import type { MdmsOptions, MdmsResult } from './types.js';
 function extractFrontmatter(rawMarkdown: string): { data: Record<string, unknown>; content: string } {
   const match = rawMarkdown.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
   
-  // Explicit narrowing: match, match[1], and match[2] are strictly typed as string here
+  // Explicit narrowing: match[1] is guaranteed by the guard below;
+  // match[2] may legitimately be '' or missing (frontmatter-only file, e.g. a fresh seed).
   if (!match || !match[1]) {
     // No frontmatter at all — whole input is the body.
     return { data: {}, content: rawMarkdown };
@@ -31,10 +32,13 @@ function extractFrontmatter(rawMarkdown: string): { data: Record<string, unknown
   // NOTE: match[2] may legitimately be '' (frontmatter-only file, e.g. a freshly
   // seeded page). Do not gate on it or empty-bodied frontmatter loses its metadata.
 
+  // Empty frontmatter, or an empty body after it — still a body.
+  const body = match[2] ?? '';
+
   try {
     const parsed = parseYaml(match[1]);
     const data = (parsed === null || parsed === undefined) ? {} : (parsed as Record<string, unknown>);
-    return { data, content: match[2] };
+    return { data, content: body };
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));
     throw new TypeError(`mdms: Invalid YAML frontmatter. ${err.message}`);
