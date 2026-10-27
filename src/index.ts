@@ -24,10 +24,13 @@ function extractFrontmatter(rawMarkdown: string): { data: Record<string, unknown
   const match = rawMarkdown.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
   
   // Explicit narrowing: match, match[1], and match[2] are strictly typed as string here
-  if (!match || !match[1] || !match[2]) {
+  if (!match || !match[1]) {
+    // No frontmatter at all — whole input is the body.
     return { data: {}, content: rawMarkdown };
   }
-  
+  // NOTE: match[2] may legitimately be '' (frontmatter-only file, e.g. a freshly
+  // seeded page). Do not gate on it or empty-bodied frontmatter loses its metadata.
+
   try {
     const parsed = parseYaml(match[1]);
     const data = (parsed === null || parsed === undefined) ? {} : (parsed as Record<string, unknown>);

@@ -76,3 +76,17 @@ Content.`;
     );
   });
 });
+describe('frontmatter-only documents (empty body)', () => {
+  it('keeps metadata when the body is empty', () => {
+    const raw = '---\ntitle: Seeded\nslug: fresh\n---\n';
+    const result = parseMdms<{ title: string; slug: string }>(raw);
+    expect(result.metadata).toEqual({ title: 'Seeded', slug: 'fresh' });
+    expect(result.fullHtml).toBe('');
+  });
+
+  it('keeps metadata when the body is blank lines only (fresh seeds)', () => {
+    const raw = '---\ntitle: Seeded\n---\n\n\n';
+    const result = parseMdms<{ title: string }>(raw);
+    expect(result.metadata).toEqual({ title: 'Seeded' });
+  });
+});
