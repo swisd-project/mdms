@@ -107,8 +107,14 @@ export function parseMdms<TFrontmatter extends Record<string, unknown> = Record<
 
   let parseProcessor = unified().use(remarkParse);
 
-  // MDAST-phase plugins (e.g. remark-directive) sit BEFORE remark-rehype so they see
-  // the markdown tree; options.plugins stay on the HAST side (rehype), as before.
+  // MDAST-phase plugins (e.g. remark-directive) must live on BOTH processors:
+  // the micromark/mdast extensions attach at parse time (parseProcessor), while the
+  // plugin's transformer runs at run time (compileProcessor, before remark-rehype).
+  // options.plugins stay on the HAST side (rehype), as before.
+  if (options?.mdastPlugins && options.mdastPlugins.length > 0) {
+    parseProcessor = parseProcessor.use(options.mdastPlugins);
+  }
+
   const compileProcessor = unified()
     .use(options?.mdastPlugins?.length ? options.mdastPlugins : [])
     .use(remarkRehype)
