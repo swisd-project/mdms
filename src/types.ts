@@ -27,6 +27,12 @@ export interface MdmsOptions<TFrontmatter extends Record<string, unknown> = Reco
   readonly plugins?: PluggableList;
 
   /**
+   * MDAST-phase plugins (remark). Run BEFORE remark-rehype, so they see the markdown
+   * tree — remark-directive, remark-gfm etc. belong here. options.plugins stay on rehype.
+   */
+  readonly mdastPlugins?: PluggableList;
+
+  /**
    * The Styling Hook: Map HTML tags to CSS classes (perfect for Tailwind's @tailwindcss/typography or custom CSS).
    * Injects classes during the AST phase, keeping the HTML clean and semantic.
    * e.g., { h1: 'text-4xl font-bold text-primary', p: 'my-4 leading-relaxed' }

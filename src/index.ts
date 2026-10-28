@@ -106,7 +106,14 @@ export function parseMdms<TFrontmatter extends Record<string, unknown> = Record<
   }
 
   let parseProcessor = unified().use(remarkParse);
-  let compileProcessor = unified().use(remarkRehype).use(rehypeStringify);
+  let compileProcessor = unified();
+
+  // MDAST-phase plugins (e.g. remark-directive) sit BEFORE remark-rehype so they see
+  // the markdown tree; options.plugins stay on the HAST side (rehype), as before.
+  if (options?.mdastPlugins && options.mdastPlugins.length > 0) {
+    compileProcessor = compileProcessor.use(options.mdastPlugins);
+  }
+  compileProcessor = compileProcessor.use(remarkRehype).use(rehypeStringify);
 
   if (options?.plugins && options.plugins.length > 0) {
     compileProcessor = compileProcessor.use(options.plugins);
