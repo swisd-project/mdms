@@ -6,7 +6,7 @@ on:
       version:
         description: 'Version to publish (e.g., 0.1.9)'
         required: true
-        default: '0.1.9'
+        default: '0.1.10'
 
 jobs:
   publish:
@@ -24,6 +24,10 @@ jobs:
           registry-url: "https://registry.npmjs.org"
 
       - run: npm ci
+
+      - name: Set version from input
+        run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
+
       - run: npm run build
       - run: npm publish --provenance --access public
       
