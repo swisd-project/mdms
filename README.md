@@ -270,6 +270,41 @@ To truly hide content from bots, do not just hide `fullHtml` with CSS.
 - **Handler output is verbatim:** a `customSyntax` handler's returned string is emitted raw. Escape every value you interpolate into attributes/text — `escapeAttribute`/`escapeHtmlText` are exported for exactly that.
 - Containers whose handler throws collapse into an `<!-- mdms:handler-error -->` marker instead of breaking the render.
 
+## Marker Hygiene
+
+Corrupted containers (`:::`) render as **literal text corpses** — remark-directive only parses
+happy paths, so an unclosed, stray, or malformed fence silently leaks paragraphs the user
+wrote. mdms ships a lexical scanner (frontmatter, fenced and indented code are respected)
+plus a conservative repairer:
+
+```js
+import { diagnoseMarkers, repairMarkers } from '@swisd-project/mdms';
+
+const analysis = diagnoseMarkers(rawMarkdown);
+if (!analysis.healthy) {
+  const repair = repairMarkers(rawMarkdown);
+  // repair.markdown — cleaned document (content never discarded)
+  // repair.changed  — false when the document was already healthy
+  // repair.issues   — every finding; severity 'fixed' where repair acted,
+  //                   'error' for leftovers it deliberately left untouched
+}
+```
+
+What gets detected and repaired:
+
+| Problem | Example | Repair behavior |
+| --- | --- | --- |
+| `unclosed` | `:::note` without a closer | Closing fence appended at end of document (content preserved; innermost container closes first) |
+| `orphan-closer` | stray `:::` with nothing open, or too short for the container above | Line dropped (pure noise, nothing else) |
+| `malformed-attrs` | `:::video{url="https://x" file="v.mp4"` | Rebuilt from salvaged `key="value"` pairs; a nameless junk fence (`:::{`) is dropped |
+| `trailing-junk` | `:::image{caption="x"} file="y.jpg"` | Junk folded back into the braces |
+
+Every issue carries a 1-based `line`, the offending `snippet`, a `message`, and usually a
+`suggestion`. Valid directive syntax (`:::note some label text`) is never flagged, and the
+repaired document always re-diagnoses clean — `repairMarkers` runs the diagnostics over its
+own output and honestly reports anything it could not resolve as
+`severity: 'error' … (still unresolved after repair — left untouched)`.
+
 ## License
 
 MPL-2.0 — See LICENSE file for details.

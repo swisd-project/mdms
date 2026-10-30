@@ -210,3 +210,7 @@ export {
   builtinSyntaxRegistry
 } from './builtinSyntax.js';
 export { escapeAttribute, remarkMdmsCustomSyntax, rehypeMdmsCustomSyntax } from './customSyntax.js';
+
+// Convenience exports: marker hygiene for corrupted `:::` documents.
+export { diagnoseMarkers, repairMarkers } from './markers.js';
+export type { MarkerIssue, MarkerIssueKind, MarkerAnalysis, MarkerRepair } from './markers.js';

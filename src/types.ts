@@ -60,3 +60,11 @@ export type {
   CustomSyntaxRegistry,
   CustomSyntaxPluginOptions,
 };
+
+// Re-export marker hygiene types (diagnose/repair of corrupted `:::` containers)
+export type {
+  MarkerIssue,
+  MarkerIssueKind,
+  MarkerAnalysis,
+  MarkerRepair,
+} from './markers.js';
