@@ -6,7 +6,6 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parseMdms } from './index.js';
-import type { MdmsResult } from './types.js';
 
 describe('parseMdms', () => {
   it('should parse basic markdown with frontmatter and a split marker', () => {
@@ -76,6 +75,13 @@ Content.`;
     );
   });
 });
+it('parses frontmatter that has a BOM or stray blank line before the opening fence', () => {
+  const raw = '\uFEFF\n---\ntitle: Late\n---\nBody.';
+  const result = parseMdms<{ title: string }>(raw);
+  expect(result.metadata).toEqual({ title: 'Late' });
+  expect(result.fullHtml).toContain('<p>Body.</p>');
+});
+
 describe('frontmatter-only documents (empty body)', () => {
   it('keeps metadata when the body is empty', () => {
     const raw = '---\ntitle: Seeded\nslug: fresh\n---\n';
