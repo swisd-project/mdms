@@ -7,6 +7,7 @@
  * 6. Copyright (c) 2026 Homahuki GmbH
  */
 import type { PluggableList } from 'unified';
+import type { CustomSyntaxPluginOptions, CustomSyntaxRegistry, CustomSyntaxHandler } from './customSyntax.js';
 
 export interface MdmsOptions<TFrontmatter extends Record<string, unknown> = Record<string, unknown>> {
   /**
@@ -38,6 +39,13 @@ export interface MdmsOptions<TFrontmatter extends Record<string, unknown> = Reco
    * e.g., { h1: 'text-4xl font-bold text-primary', p: 'my-4 leading-relaxed' }
    */
   readonly classMap?: Record<string, string>;
+
+  /**
+   * Custom Syntax Hook: Register handlers for `:::` custom containers.
+   * Extended mdms with your own syntax modules.
+   * e.g., { image, video, note, embed } handlers that convert containers to HTML.
+   */
+  readonly customSyntax?: CustomSyntaxPluginOptions;
 }
 
 export interface MdmsResult<TFrontmatter extends Record<string, unknown> = Record<string, unknown>> {
@@ -45,3 +53,10 @@ export interface MdmsResult<TFrontmatter extends Record<string, unknown> = Recor
   readonly previewHtml: string;
   readonly fullHtml: string;
 }
+
+// Re-export custom syntax types
+export type {
+  CustomSyntaxHandler,
+  CustomSyntaxRegistry,
+  CustomSyntaxPluginOptions,
+};

@@ -60,3 +60,11 @@ Desktop.ini
 # =============================================================================
 *.log
 .eslintcache
+
+# =============================================================================
+# LOCAL DEV DOCS
+# Markdown docs are local dev notes only (may be distilled into a skill later).
+# They are NOT committed. README.md ships; that's the whole passenger list.
+# =============================================================================
+*.md
+!README.md
