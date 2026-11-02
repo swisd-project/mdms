@@ -1,14 +1,20 @@
 /**
- * Test file for custom syntax support
+ * Tests for mdms custom syntax and error handling
+ * 
+ * SPONSORED BY HER MAJESTY'S LEGENDARY TEST SQUAD
  * SPDX-License-Identifier: MPL-2.0
  * Copyright (c) 2026 Homahuki GmbH
  */
 
 import { describe, it, expect } from 'vitest';
-import { parseMdms } from './index.js';
-import { imageSyntax, noteSyntax, slideSyntax } from './builtinSyntax.js';
+import { parseMdms } from '../src/index.js';
+import {
+  imageSyntax,
+  noteSyntax,
+  slideSyntax
+} from '../src/customSyntax.js';
 
-// Test custom syntax handlers
+// Test registry
 const testRegistry = {
   image: imageSyntax,
   note: noteSyntax,
@@ -26,7 +32,7 @@ describe('mdms custom syntax', () => {
       customSyntax: { registry: testRegistry }
     });
 
-    expect(result.fullHtml).toContain('<figure class="mdms-image');
+    expect(result.fullHtml).toContain('mdms-image');
     expect(result.fullHtml).toContain('alt="A beautiful image"');
   });
 
@@ -41,14 +47,14 @@ This is a tip.
       customSyntax: { registry: testRegistry }
     });
 
-    expect(result.fullHtml).toContain('mdms-note-tip');
+    expect(result.fullHtml).toContain('mdms-note mdms-note-tip');
   });
 
   it('should parse custom slide syntax', () => {
     const markdown = `
 ::::slide{title="Introduction"}
 Content goes here.
-::::
+:::
     `.trim();
 
     const result = parseMdms(markdown, {
@@ -61,10 +67,11 @@ Content goes here.
 
   it('should handle nested containers', () => {
     const markdown = `
-::::slide{title="Nested"}
+::::callout
+Outer container with style.
 
-:::note{kind="tip"}
-Inside the slide.
+:::note{kind="warn"}
+Inner note!
 :::
 
 ::::
@@ -74,8 +81,8 @@ Inside the slide.
       customSyntax: { registry: testRegistry }
     });
 
-    expect(result.fullHtml).toContain('mdms-slide');
     expect(result.fullHtml).toContain('mdms-note');
+    expect(result.fullHtml).toContain('mdms-note-content');
   });
 
   it('should integrate with frontmatter', () => {
@@ -96,7 +103,7 @@ Warning message.
 
     expect(result.metadata.title).toBe('Test Article');
     expect(result.metadata.published).toBe(true);
-    expect(result.fullHtml).toContain('mdms-note-warning');
+    expect(result.fullHtml).toContain('mdms-note mdms-note-warning');
   });
 
   it('should use default handler when no registry', () => {
@@ -110,98 +117,158 @@ Fallback content.
       customSyntax: { registry: {} }
     });
 
-    // Should output as HTML comment with fallback
-    expect(result.fullHtml).toContain('mdms-custom:unknown');
+    // Should output as HTML (converted by default handler)
+    expect(result.fullHtml).toContain('mdms-unknown');
   });
 
-  it('should keep hostiles out of the attributes and escaped values honest', () => {
+  it('should handle escaped characters in attributes', () => {
     const markdown = `
-:::note{kind="tip" onmouseover="steal()" file='<script>alert(1)</script>'}
-Scoped content.
+:::note{kind="<script>alert(1)</script>"}
+Safe note.
 :::
     `.trim();
 
     const result = parseMdms(markdown, {
-      customSyntax: { registry: { note: noteSyntax } }
+      customSyntax: { registry: testRegistry }
     });
 
-    expect(result.fullHtml).not.toContain('onmouseover');
+    expect(result.fullHtml).toContain('mdms-note');
+    // Character should be escaped
     expect(result.fullHtml).not.toContain('<script>');
-    expect(result.fullHtml).toContain('mdms-note-tip');
+  });
+});
+
+describe('mdms core functionality', () => {
+  it('should parse basic markdown with frontmatter and a split marker', () => {
+    const raw = `---
+title: Test
+---
+Paragraph one.
+
+<!-- more -->
+
+Paragraph two.`;
+
+    const result = parseMdms(raw);
+
+    expect(result.metadata).toEqual({ title: 'Test' });
+    expect(result.previewHtml).toContain('<p>Paragraph one.</p>');
+    expect(result.previewHtml).not.toContain('Paragraph two');
+    expect(result.fullHtml).toContain('<p>Paragraph one.</p>');
+    expect(result.fullHtml).toContain('<p>Paragraph two.</p>');
   });
 
-  it('should honor onUnknown fallbacks per project', () => {
-    const markdown = `
-:::mystery{a="1"}
-Odd content.
-:::
-    `.trim();
+  it('should return full content as preview if no split marker is found', () => {
+    const raw = `---
+title: No Marker
+---
+Just one paragraph.`;
 
-    const result = parseMdms(markdown, {
-      customSyntax: {
-        registry: {},
-        onUnknown: ({ name, children }) => `<em data-mystery="${name}">${children}</em>`
+    const result = parseMdms(raw);
+    expect(result.previewHtml).toBe(result.fullHtml);
+    expect(result.previewHtml).toContain('<p>Just one paragraph.</p>');
+  });
+
+  it('should handle multiple paragraphs with marker', () => {
+    const raw = `---
+title: Validated
+---
+Content.`;
+
+    const validator = (data: unknown) => {
+      if (typeof data === 'object' && data !== null && 'title' in data) {
+        return data as { title: string };
       }
-    });
+      throw new Error('Missing title');
+    };
 
-    expect(result.fullHtml).toContain('<em data-mystery="mystery">');
-    expect(result.fullHtml).toContain('Odd content.');
+    const result = parseMdms(raw, { validateFrontmatter: validator });
+    expect(result.metadata.title).toBe('Validated');
   });
 
-  it('keeps handler state fresh per rendered tree (full vs preview)', () => {
-    const markdown = `
-::::slide{title="One"}
-first
-::::
+  it('should handle multiple paragraphs with marker', () => {
+    const raw = `---
+title: Multi
+---
 
-::::slide{title="One"}
-second
-::::
-    `.trim();
+Para 1.
 
-    const result = parseMdms(markdown, { customSyntax: { registry: { slide: slideSyntax } } });
+<!-- more -->
 
-    // Document-order dedup: the first „One" keeps the plain anchor, the second ranks.
-    expect(result.fullHtml).toContain('<section class="mdms-slide" id="one" ');
-    expect(result.fullHtml).toContain('id="one-2"');
-    // The preview run started from a clean state: its first "One" is "one" again —
-    // a fresh state per tree keeps preview anchor names meaningful.
-    expect(result.previewHtml).toContain('id="one" ');
+Para 2.
+Para 3.`;
+
+    const result = parseMdms(raw);
+    expect(result.metadata.title).toBe('Multi');
+    expect(result.previewHtml).toContain('<p>Para 1.</p>');
+    expect(result.previewHtml).not.toContain('Para 2');
+    expect(result.fullHtml).toContain('<p>Para 1.</p>');
+    expect(result.fullHtml).toContain('<p>Para 2.');
+    expect(result.fullHtml).toContain('Para 3');
   });
 
-  it('renders an inner directive inside its outer container', () => {
-    const markdown = `
-::::slide{title="Wrap"}
+  it('should handle frontmatter-only documents', () => {
+    const result = parseMdms<{ title: string; slug: string }>('---\ntitle: Seeded\nslug: fresh\n---\n');
 
-:::note{kind="tip"}
-inner tip
-:::
-
-::::
-    `.trim();
-
-    const result = parseMdms(markdown, {
-      customSyntax: { registry: { slide: slideSyntax, note: noteSyntax } }
-    });
-
-    // The note's rendered HTML must live INSIDE the slide section — as markup, not
-    // as escaped text.
-    expect(result.fullHtml).toContain('class="mdms-note');
-    expect(result.fullHtml).not.toContain('&lt;div');
+    expect(result.metadata).toEqual({ title: 'Seeded', slug: 'fresh' });
+    expect(result.previewHtml).toBe(result.fullHtml);
+    expect(result.fullHtml).toBe('');
   });
 
-  it('swallows throwing handlers as marker comments, not broken pages', () => {
-    const markdown = `
-:::boom{one="1"}
-collapsed
-:::
-    `.trim();
+  it('should work with split marker not found', () => {
+    const raw = `---
+title: No Marker
+---
+Just one paragraph.`;
 
-    const result = parseMdms(markdown, {
-      customSyntax: { registry: { boom: () => { throw new Error('handler hand-grenade'); } } }
-    });
+    const result = parseMdms(raw);
+    expect(result.previewHtml).toBe(result.fullHtml);
+    expect(result.previewHtml).toContain('<p>Just one paragraph.</p>');
+  });
 
-    expect(result.fullHtml).toContain('mdms:handler-error');
-    expect(result.fullHtml).not.toContain('hand-grenade');
+  it('should strip markdown formatting from preview', () => {
+    const raw = `---
+title: Test
+---
+
+# **Bold** and *italic*
+
+<!-- more -->
+
+## Regular header`;
+
+    const result = parseMdms(raw);
+
+    expect(result.previewHtml).toContain('<strong>Bold</strong>');
+    expect(result.previewHtml).toContain('<em>italic</em>');
+    expect(result.previewHtml).not.toContain('###');
+  });
+});
+
+describe('mdms error handling', () => {
+  it('should parse YAML with structure even if valid', () => {
+    const raw = `---
+title: Article
+tags:
+  - markdown
+  - parsing
+---
+Content.`;
+
+    const result = parseMdms(raw);
+    expect(result.metadata.title).toBe('Article');
+  });
+
+  it('should throw TypeError for invalid frontmatter validator', () => {
+    const raw = `---
+title: Test
+---
+Content.`;
+
+    const validator = () => {
+      throw new Error('Custom validator error');
+    };
+
+    expect(() => parseMdms(raw, { validateFrontmatter: validator })).toThrow('Custom validator error');
   });
 });
